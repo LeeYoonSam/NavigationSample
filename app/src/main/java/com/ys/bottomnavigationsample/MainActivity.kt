@@ -3,98 +3,56 @@ package com.ys.bottomnavigationsample
 import android.os.Bundle
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentTransaction
-import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
+import androidx.lifecycle.LiveData
+import androidx.navigation.NavController
 import androidx.navigation.ui.setupActionBarWithNavController
-import androidx.navigation.ui.setupWithNavController
-import com.ys.bottomnavigationsample.ui.dashboard.DashboardFragment
-import com.ys.bottomnavigationsample.ui.home.HomeFragment
-import com.ys.bottomnavigationsample.ui.notifications.NotificationsFragment
+import com.ys.bottomnavigationsample.ui.setupWithNavController
 
 class MainActivity : AppCompatActivity() {
 
-    private val homeFragment = HomeFragment()
-    private val dashboardFragment = DashboardFragment()
-    private val notificationsFragment = NotificationsFragment()
+    private var currentNavController: LiveData<NavController>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-//        val navView: BottomNavigationView = findViewById(R.id.nav_view)
-//
-//        val navController = findNavController(R.id.nav_host_fragment)
-//        // Passing each menu ID as a set of Ids because each
-//        // menu should be considered as top level destinations.
-//        val appBarConfiguration = AppBarConfiguration(setOf(
-//                R.id.navigation_home, R.id.navigation_dashboard, R.id.navigation_notifications))
-//        setupActionBarWithNavController(navController, appBarConfiguration)
-//        navView.setupWithNavController(navController)
-
-        findViewById<BottomNavigationView>(R.id.nav_view).setOnNavigationItemSelectedListener(bottomNavigationListener)
-
-        changeFragment(homeFragment)
-
+        setContentView(R.layout.activity_main_advanced)
+        if (savedInstanceState == null) {
+            setupBottomNavigationBar()
+        } // Else, need to wait for onRestoreInstanceState
     }
 
-    private val bottomNavigationListener = BottomNavigationView.OnNavigationItemSelectedListener { item ->
-        when (item.itemId) {
-            R.id.navigation_dashboard -> {
-                changeFragment(dashboardFragment)
-            }
-
-            R.id.navigation_notifications -> {
-                changeFragment(notificationsFragment)
-            }
-
-            else -> {
-                changeFragment(homeFragment)
-            }
-        }
-
-        true
+    override fun onRestoreInstanceState(savedInstanceState: Bundle) {
+        super.onRestoreInstanceState(savedInstanceState)
+        // Now that BottomNavigationBar has restored its instance state
+        // and its selectedItemId, we can proceed with setting up the
+        // BottomNavigationBar with Navigation
+        setupBottomNavigationBar()
     }
 
-    private fun hideFragments(fragments: List<Fragment>, fragmentTransaction: FragmentTransaction) {
-        for (fragment in fragments) {
-            fragment.also {
-                if (it.isAdded) fragmentTransaction.hide(it)
-            }
-        }
+    /**
+     * Called on first creation and when restoring state.
+     */
+    private fun setupBottomNavigationBar() {
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_nav)
+
+        val navGraphIds = listOf(R.navigation.navigation_home, R.navigation.navigation_dashboard, R.navigation.navigation_notifications)
+
+        // Setup the bottom navigation view with a list of navigation graphs
+        val controller = bottomNavigationView.setupWithNavController(
+            navGraphIds = navGraphIds,
+            fragmentManager = supportFragmentManager,
+            containerId = R.id.nav_host_container,
+            intent = intent
+        )
+
+        // Whenever the selected controller changes, setup the action bar.
+        controller.observe(this, { navController ->
+            setupActionBarWithNavController(navController)
+        })
+
+        currentNavController = controller
     }
 
-    private fun changeFragment(fragment: Fragment) {
-        try {
-            val ft = supportFragmentManager.beginTransaction()
-
-            fragment.also {
-                if (it.isAdded) { // if the fragment is already in container
-                    ft.show(it)
-                } else { // fragment needs to be added to frame container
-                    ft.add(R.id.container_view, it)
-                }
-            }
-
-            when (fragment) {
-                is HomeFragment -> {
-                    hideFragments(listOf(dashboardFragment, notificationsFragment), ft)
-                }
-
-                is DashboardFragment -> {
-                    hideFragments(listOf(homeFragment, notificationsFragment), ft)
-                }
-
-                is NotificationsFragment -> {
-                    hideFragments(listOf(homeFragment, dashboardFragment), ft)
-                }
-
-                else -> return
-            }
-
-            ft.commitAllowingStateLoss()
-        } catch (e: Exception) {
-        }
+    override fun onSupportNavigateUp(): Boolean {
+        return currentNavController?.value?.navigateUp() ?: false
     }
-
 }
